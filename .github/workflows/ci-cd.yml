@@ -1,0 +1,90 @@
+name: CI/CD ProqueFlix
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI - Validar projeto
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v6
+
+      - name: Verificar arquivos principais
+        run: |
+          required_files=(
+            "index.html"
+            "style.css"
+            "login.html"
+            "login.css"
+            "sobre.html"
+            "sobre.css"
+            "resenha.html"
+            "resenha.css"
+          )
+
+          for file in "${required_files[@]}"; do
+            test -f "$file" || {
+              echo "Arquivo ausente: $file"
+              exit 1
+            }
+          done
+
+          test -d "assets" || {
+            echo "Pasta assets ausente"
+            exit 1
+          }
+
+      - name: Verificar arquivos HTML
+        run: |
+          for file in index.html login.html sobre.html resenha.html; do
+            grep -qi "<html" "$file" || {
+              echo "Arquivo HTML inválido: $file"
+              exit 1
+            }
+          done
+
+      - name: Verificar dependências
+        run: echo "Projeto estático HTML/CSS; não há dependências para instalar."
+
+  cd:
+    name: CD - Publicar no GitHub Pages
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v6
+
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Preparar arquivos do site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: "."
+
+      - name: Fazer deployment
+        id: deployment
+        uses: actions/deploy-pages@v4
